@@ -1,0 +1,1468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChronoVault 2.0 · Time Cockpit</title>
+<style>
+:root{
+  --bg:#05070d; --bg2:#080c15; --panel:rgba(13,19,32,.78); --panel2:rgba(18,26,43,.72);
+  --line:rgba(122,162,220,.15); --line2:rgba(122,162,220,.28);
+  --text:#e9eefc; --dim:#93a4c1; --faint:#61718c;
+  --cyan:#5ee7ff; --blue:#63a7ff; --violet:#a78bfa; --green:#5eead4;
+  --amber:#fbbf24; --orange:#fb923c; --red:#fb7185; --pink:#f472b6;
+  --mono:"Cascadia Code","Consolas","SFMono-Regular",monospace;
+  --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(900px 600px at 12% 4%, rgba(94,231,255,.08), transparent 60%),
+    radial-gradient(800px 600px at 92% 0%, rgba(167,139,250,.09), transparent 55%),
+    radial-gradient(900px 700px at 70% 100%, rgba(244,114,182,.05), transparent 60%),
+    var(--bg);
+  color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.55;
+  min-height:100vh;overflow:hidden;
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.22;
+  background-image:
+    radial-gradient(rgba(255,255,255,.42) 1px, transparent 1px),
+    radial-gradient(rgba(94,231,255,.35) 1px, transparent 1px);
+  background-size:140px 140px, 230px 230px;
+  background-position:0 0, 70px 110px;
+  animation:starDrift 120s linear infinite;
+}
+@keyframes starDrift{to{background-position:140px 140px, -160px 340px}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(500%)}}
+@keyframes shimmer{0%{background-position:-300px 0}100%{background-position:300px 0}}
+
+.shell{display:grid;grid-template-columns:252px minmax(0,1fr);height:100vh;position:relative;z-index:1}
+
+/* ---------------------------------------------------------------- rail */
+.rail{
+  border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(7,11,19,.92),rgba(7,11,19,.72));
+  backdrop-filter:blur(14px);display:flex;flex-direction:column;padding:22px 16px 18px;overflow-y:auto;
+}
+.brand{display:flex;gap:12px;align-items:center;padding:0 6px 22px}
+.logo{
+  width:42px;height:42px;flex:0 0 42px;border-radius:13px;display:grid;place-items:center;
+  background:conic-gradient(from 200deg,#5ee7ff,#a78bfa,#f472b6,#5ee7ff);
+  box-shadow:0 0 28px rgba(94,231,255,.28);position:relative;
+}
+.logo::after{content:"";position:absolute;inset:2px;border-radius:11px;background:#080c15}
+.logo span{position:relative;z-index:1;font-size:20px;color:#dffaff;text-shadow:0 0 12px #5ee7ff}
+.brand h1{margin:0;font-size:15px;letter-spacing:.18em;font-weight:650}
+.brand p{margin:2px 0 0;font-size:9.5px;letter-spacing:.16em;color:var(--faint);font-family:var(--mono)}
+.nav{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.nav-label{font-size:9.5px;letter-spacing:.18em;color:var(--faint);margin:8px 10px 6px;font-family:var(--mono)}
+.nav-btn{
+  appearance:none;border:1px solid transparent;background:transparent;color:var(--dim);
+  display:flex;align-items:center;gap:11px;width:100%;padding:10px 11px;border-radius:10px;
+  font:inherit;font-size:13.5px;cursor:pointer;text-align:left;transition:.18s;
+}
+.nav-btn .num{font-family:var(--mono);font-size:10px;color:var(--faint);width:18px}
+.nav-btn:hover{background:rgba(94,231,255,.05);color:var(--text)}
+.nav-btn.active{
+  background:linear-gradient(90deg,rgba(94,231,255,.12),rgba(167,139,250,.06));
+  border-color:rgba(94,231,255,.22);color:#eafcff;
+  box-shadow:inset 2px 0 0 var(--cyan),0 0 22px rgba(94,231,255,.06);
+}
+.nav-btn.active .num{color:var(--cyan)}
+.rail-foot{margin-top:auto;padding:16px 8px 0;border-top:1px solid var(--line)}
+.rail-foot .pill{margin-bottom:8px}
+.rail-foot p{margin:8px 0 0;font-size:10.5px;color:var(--faint);line-height:1.6}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;
+  border:1px solid var(--line2);background:rgba(255,255,255,.02);
+  font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap;
+}
+.pill.ok{color:#a9ffe9;border-color:rgba(94,234,212,.3);background:rgba(94,234,212,.06)}
+.pill.warn{color:#ffe6a8;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.06)}
+.dot-live{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+/* ---------------------------------------------------------------- main */
+.main{overflow-y:auto;scroll-behavior:smooth;position:relative}
+.topbar{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  gap:16px;padding:16px 30px;border-bottom:1px solid var(--line);
+  background:rgba(5,7,13,.72);backdrop-filter:blur(16px);
+}
+.crumb{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--dim)}
+.top-right{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.clock{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.content{max-width:1220px;margin:0 auto;padding:28px 30px 70px}
+.tab{display:none}
+.tab.active{display:block;animation:fadeUp .3s ease}
+
+/* --------------------------------------------------------------- hero */
+.hero{display:flex;align-items:center;justify-content:space-between;gap:28px;padding:14px 4px 26px}
+.hero h2{font-size:clamp(22px,3vw,34px);line-height:1.2;margin:0 0 10px;letter-spacing:-.015em;font-weight:620}
+.hero h2 em{font-style:normal;background:linear-gradient(90deg,#5ee7ff,#a78bfa 60%,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:0;color:var(--dim);max-width:640px;font-size:13.5px}
+.orb-wrap{position:relative;width:150px;height:150px;flex:0 0 150px;display:grid;place-items:center}
+.orb{
+  width:104px;height:104px;border-radius:50%;position:relative;
+  background:radial-gradient(circle at 36% 30%,rgba(94,231,255,.7),rgba(167,139,250,.33) 42%,rgba(10,15,26,.15) 70%);
+  box-shadow:0 0 70px rgba(94,231,255,.28),inset 0 0 30px rgba(167,139,250,.3);
+}
+.orb::before,.orb::after{
+  content:"";position:absolute;inset:-13px;border-radius:50%;
+  border:1px solid rgba(94,231,255,.3);border-top-color:rgba(94,231,255,.85);
+  animation:spin 14s linear infinite;
+}
+.orb::after{inset:-27px;border-color:rgba(167,139,250,.18);border-bottom-color:rgba(167,139,250,.7);animation-duration:24s;animation-direction:reverse}
+.orb .core{position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px;border-radius:50%;background:#e8fdff;box-shadow:0 0 18px 4px rgba(94,231,255,.8)}
+
+/* --------------------------------------------------------------- ask */
+.askbox{
+  border:1px solid var(--line2);border-radius:16px;background:linear-gradient(180deg,rgba(15,22,37,.9),rgba(11,16,27,.82));
+  box-shadow:0 18px 70px rgba(0,0,0,.35);transition:.2s;overflow:hidden;
+}
+.askbox:focus-within{border-color:rgba(94,231,255,.48);box-shadow:0 0 0 1px rgba(94,231,255,.12),0 24px 80px rgba(0,0,0,.45)}
+.askbox textarea{
+  width:100%;background:transparent;border:0;outline:0;color:var(--text);font:inherit;
+  font-size:17px;line-height:1.55;resize:none;padding:20px 22px 8px;min-height:64px;
+}
+.askbox textarea::placeholder{color:#667794}
+.ask-actions{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px 13px 18px}
+.switch{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:12px;cursor:pointer;font-family:var(--mono)}
+.switch input{appearance:none;width:32px;height:17px;border-radius:999px;background:#1c2739;border:1px solid #2b3a52;position:relative;cursor:pointer;transition:.2s}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#6e819f;transition:.2s}
+.switch input:checked{background:rgba(94,231,255,.18);border-color:rgba(94,231,255,.5)}
+.switch input:checked::after{left:17px;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.btn{
+  appearance:none;border:1px solid var(--line2);background:rgba(255,255,255,.03);color:var(--text);
+  font:inherit;font-size:12.5px;padding:8px 14px;border-radius:9px;cursor:pointer;transition:.18s;
+  display:inline-flex;align-items:center;gap:7px;
+}
+.btn:hover{border-color:rgba(94,231,255,.4);background:rgba(94,231,255,.07)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{
+  background:linear-gradient(110deg,#5ee7ff,#8fb4ff 52%,#a78bfa);border:0;color:#051018;
+  font-weight:700;padding:10px 20px;box-shadow:0 6px 24px rgba(94,231,255,.25);
+}
+.btn.primary:hover{filter:brightness(1.08);box-shadow:0 8px 30px rgba(94,231,255,.36)}
+.btn.ghost{background:transparent}
+.btn.small{font-size:11.5px;padding:6px 10px}
+.btn.danger{color:#ffc0c8;border-color:rgba(251,113,133,.3)}
+.btn.danger:hover{background:rgba(251,113,133,.09)}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin:14px 2px 22px}
+.chip{
+  appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.018);color:var(--dim);
+  font:inherit;font-family:var(--mono);font-size:10.5px;padding:5px 10px;border-radius:999px;cursor:pointer;transition:.18s;
+}
+.chip:hover{color:var(--cyan);border-color:rgba(94,231,255,.35);background:rgba(94,231,255,.05)}
+
+/* -------------------------------------------------------------- stages */
+.stage-panel{
+  border:1px solid rgba(94,231,255,.18);border-radius:13px;background:rgba(8,14,24,.75);
+  overflow:hidden;margin-bottom:20px;position:relative;
+}
+.stage-panel::before{
+  content:"";position:absolute;left:0;right:0;height:70px;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(94,231,255,.05),transparent);
+  animation:scan 2.6s linear infinite;
+}
+.stage-head{display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--cyan)}
+.stage-head .pulse{width:7px;height:7px;border-radius:50%;background:var(--cyan);animation:pulse 1.1s infinite}
+.stage-head .ms{margin-left:auto;color:var(--faint);letter-spacing:0}
+.stage-log{padding:9px 14px 11px;font-family:var(--mono);font-size:11px}
+.stage{display:flex;align-items:center;gap:9px;padding:3px 0;color:var(--dim);animation:fadeUp .25s ease}
+.stage .sdot{width:5px;height:5px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px rgba(94,231,255,.7);flex:0 0 5px}
+.stage .stime{margin-left:auto;color:var(--faint);font-size:9.5px}
+.stage.done .sdot{background:var(--green);box-shadow:0 0 8px rgba(94,234,212,.7)}
+.stage.err{color:#ffc0c8}
+.stage.err .sdot{background:var(--red)}
+.hidden{display:none!important}
+
+/* -------------------------------------------------------------- answer */
+.answer-card{
+  border:1px solid var(--line2);border-radius:16px;background:
+    linear-gradient(180deg,rgba(15,22,38,.92),rgba(9,14,24,.9));
+  padding:22px 24px;margin-bottom:18px;position:relative;overflow:hidden;
+  animation:fadeUp .35s ease;
+}
+.answer-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,#5ee7ff,#a78bfa 55%,transparent)}
+.answer-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.badge{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;border:1px solid transparent;
+}
+.b-green{color:#a9ffe9;background:rgba(94,234,212,.09);border-color:rgba(94,234,212,.3)}
+.b-cyan{color:#c9f6ff;background:rgba(94,231,255,.09);border-color:rgba(94,231,255,.32)}
+.b-blue{color:#cfe0ff;background:rgba(99,167,255,.1);border-color:rgba(99,167,255,.32)}
+.b-violet{color:#e3d8ff;background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.32)}
+.b-amber{color:#ffe7a6;background:rgba(251,191,36,.09);border-color:rgba(251,191,36,.3)}
+.b-orange{color:#ffd6b0;background:rgba(251,146,60,.09);border-color:rgba(251,146,60,.3)}
+.b-red{color:#ffc5cd;background:rgba(251,113,133,.1);border-color:rgba(251,113,133,.34)}
+.b-gray{color:#bccae0;background:rgba(148,163,184,.08);border-color:rgba(148,163,184,.25)}
+.b-pink{color:#ffd3ea;background:rgba(244,114,182,.1);border-color:rgba(244,114,182,.32)}
+.conf{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.conf-bar{width:74px;height:4px;border-radius:99px;background:#172133;overflow:hidden}
+.conf-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#fb7185,#fbbf24,#5eead4)}
+.answered-q{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-bottom:12px;word-break:break-word}
+.answer-text{font-size:16px;line-height:1.75;color:#ecf2ff}
+.answer-text p{margin:0 0 10px}
+.answer-text p:last-child{margin-bottom:0}
+.sources{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
+.source-pill{font-family:var(--mono);font-size:10px;color:#b9c9e2;border:1px solid var(--line);background:rgba(255,255,255,.02);padding:4px 8px;border-radius:6px}
+.card-note{margin-top:14px;font-size:11.5px;color:var(--faint);border-left:2px solid rgba(94,231,255,.25);padding-left:10px}
+details.fold{margin-top:15px;border-top:1px solid var(--line);padding-top:11px}
+details.fold summary{cursor:pointer;color:var(--dim);font-size:11.5px;font-family:var(--mono);list-style:none}
+details.fold summary::-webkit-details-marker{display:none}
+details.fold summary::before{content:"+ ";color:var(--cyan)}
+details.fold[open] summary::before{content:"− "}
+.fold-body{margin-top:10px}
+.ev-row{display:grid;grid-template-columns:130px 1fr 60px;gap:10px;padding:7px 0;border-bottom:1px solid rgba(122,162,220,.07);font-size:11.5px}
+.ev-row:last-child{border:0}
+.ev-src{font-family:var(--mono);font-size:10.5px;color:#bcd0ed}
+.ev-snip{color:var(--dim);word-break:break-word}
+.ev-ms{text-align:right;font-family:var(--mono);font-size:9.5px;color:var(--faint)}
+.note-list{margin:0;padding-left:16px;color:var(--dim);font-size:11.5px}
+.note-list li{margin:3px 0}
+.fb{display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:13px;border-top:1px solid var(--line);color:var(--faint);font-size:10.5px;font-family:var(--mono)}
+.fb .btn{padding:4px 9px;font-size:11px}
+.verdict{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;padding:2px 7px;border-radius:99px}
+.v-ok{color:#a9ffe9;background:rgba(94,234,212,.08)}
+.v-bad{color:#ffc5cd;background:rgba(251,113,133,.1)}
+
+/* ------------------------------------------------------------- forecast */
+.fc{border:1px solid rgba(251,191,36,.18);background:rgba(251,191,36,.035);border-radius:12px;padding:14px 15px;margin-top:16px}
+.fc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:#ffe6a8;margin-bottom:9px}
+.fc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:13px}
+.fc-cell{border:1px solid rgba(251,191,36,.14);border-radius:8px;padding:7px 9px;background:rgba(0,0,0,.14)}
+.fc-cell span{display:block;font-size:9px;letter-spacing:.08em;color:#b6a77b;font-family:var(--mono)}
+.fc-cell b{font-family:var(--mono);font-size:13px;font-weight:600;color:#ffedb8}
+.fan-track{position:relative;height:26px;margin:6px 0 4px;border-radius:6px;background:linear-gradient(90deg,rgba(251,113,133,.12),rgba(251,191,36,.12),rgba(94,234,212,.12));border:1px solid rgba(251,191,36,.13)}
+.fan-range{position:absolute;top:11px;height:4px;border-radius:4px;background:linear-gradient(90deg,#fb7185,#fbbf24,#5eead4);opacity:.8}
+.fan-mark{position:absolute;top:4px;width:2px;height:18px;border-radius:2px;background:#e8eefc;box-shadow:0 0 8px rgba(255,255,255,.5)}
+.fan-mark.pred{background:#ffe07a;box-shadow:0 0 10px rgba(251,191,36,.8);width:3px}
+.fan-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:#a99a72}
+.fc-foot{margin-top:8px;font-size:10.5px;color:#a99a72;line-height:1.5}
+
+/* ------------------------------------------------------------- generic */
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 18px;flex-wrap:wrap}
+.section-head h2{margin:0;font-size:21px;letter-spacing:-.01em;font-weight:600}
+.section-head p{margin:4px 0 0;color:var(--dim);font-size:12.5px;max-width:700px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:15px 16px}
+.card .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--faint);text-transform:uppercase}
+.card .v{font-size:23px;font-weight:600;margin:4px 0 0;letter-spacing:-.02em}
+.card .s{font-size:10.5px;color:var(--dim);margin-top:2px}
+.card.accent{border-color:rgba(94,231,255,.22);background:linear-gradient(160deg,rgba(94,231,255,.06),rgba(13,19,32,.8))}
+.card.accent .v{color:#c9f6ff}
+.card.warn{border-color:rgba(251,191,36,.2)}
+.card.warn .v{color:#ffe6a8}
+.card.bad{border-color:rgba(251,113,133,.2)}
+.card.bad .v{color:#ffc5cd}
+.panel{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden;margin-bottom:16px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.panel-head h3{margin:0;font-size:13px;font-weight:600;letter-spacing:.02em}
+.panel-head .sub{font-family:var(--mono);font-size:9.5px;color:var(--faint)}
+.panel-body{padding:14px 16px}
+.panel-body.flush{padding:0}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);font-weight:500;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;text-transform:uppercase}
+td{padding:9px 12px;border-bottom:1px solid rgba(122,162,220,.06);vertical-align:top;color:var(--dim)}
+tr:last-child td{border-bottom:0}
+td strong{color:var(--text);font-weight:550}
+.mono{font-family:var(--mono)}
+.small{font-size:10.5px}
+.faint{color:var(--faint)}
+.empty{padding:36px 20px;text-align:center;color:var(--faint)}
+.empty .big{font-size:26px;margin-bottom:8px;opacity:.5}
+.empty p{margin:4px auto 14px;max-width:480px;font-size:12px;line-height:1.6}
+.input{
+  width:100%;background:rgba(5,9,16,.65);border:1px solid var(--line2);border-radius:9px;
+  color:var(--text);font:inherit;font-size:13px;padding:9px 11px;outline:0;transition:.18s;
+}
+.input:focus{border-color:rgba(94,231,255,.45);box-shadow:0 0 0 2px rgba(94,231,255,.07)}
+textarea.input{resize:vertical;min-height:74px;line-height:1.5}
+label.lbl{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--faint);margin:0 0 6px;text-transform:uppercase}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row.end{justify-content:flex-end}
+.bar-row{display:grid;grid-template-columns:110px 1fr 44px;gap:10px;align-items:center;margin:7px 0;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.bar{height:5px;border-radius:99px;background:#141d2c;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#5ee7ff,#a78bfa)}
+.bar-row b{text-align:right;font-weight:500;color:var(--faint)}
+
+/* ------------------------------------------------------------- timeline */
+.timeline{position:relative;margin-left:7px;padding-left:24px;border-left:1px solid rgba(94,231,255,.14)}
+.tl-item{
+  position:relative;width:100%;text-align:left;border:1px solid var(--line);border-radius:11px;
+  background:rgba(13,19,32,.7);padding:12px 14px;margin-bottom:10px;color:var(--text);
+  font:inherit;cursor:pointer;transition:.18s;
+}
+.tl-item::before{content:"";position:absolute;left:-30px;top:17px;width:9px;height:9px;border-radius:50%;background:#0a0f19;border:2px solid rgba(94,231,255,.55);box-shadow:0 0 10px rgba(94,231,255,.35)}
+.tl-item:hover{border-color:rgba(94,231,255,.35);background:rgba(94,231,255,.035);transform:translateX(2px)}
+.tl-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.tl-q{font-size:12.5px;color:#dce8fb}
+.tl-a{font-size:11px;color:var(--faint);margin-top:5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tl-meta{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--faint);white-space:nowrap}
+
+/* ------------------------------------------------------------- multiverse */
+.mv-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}
+.mv-list{display:flex;flex-direction:column;gap:7px}
+.mv-item{appearance:none;border:1px solid var(--line);background:rgba(13,19,32,.7);border-radius:9px;padding:10px 11px;text-align:left;color:var(--dim);font:inherit;cursor:pointer;transition:.18s}
+.mv-item:hover{border-color:rgba(167,139,250,.3)}
+.mv-item.active{border-color:rgba(167,139,250,.5);background:rgba(167,139,250,.07);color:var(--text)}
+.mv-item .t{font-size:12px;display:block;margin-bottom:3px}
+.mv-item .m{font-family:var(--mono);font-size:9px;color:var(--faint)}
+.branch-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:13px}
+.branch{border:1px solid var(--line);border-radius:10px;padding:11px;background:rgba(0,0,0,.12)}
+.branch .num{font-family:var(--mono);font-size:17px;margin:4px 0 2px}
+.branch .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);text-transform:uppercase}
+.branch .sub{font-size:9.5px;color:var(--faint);font-family:var(--mono)}
+.branch.low{border-color:rgba(251,113,133,.25)} .branch.low .num{color:#ffc5cd}
+.branch.mid{border-color:rgba(251,191,36,.3)} .branch.mid .num{color:#ffe6a8}
+.branch.high{border-color:rgba(94,234,212,.25)} .branch.high .num{color:#a9ffe9}
+
+/* ------------------------------------------------------------- capsules */
+.cap-list{display:flex;flex-direction:column;gap:9px}
+.cap{border:1px solid var(--line);border-radius:11px;padding:12px 14px;background:rgba(13,19,32,.66);position:relative;overflow:hidden}
+.cap::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,#f472b6,transparent)}
+.cap .msg{font-size:12.5px;margin:5px 0 8px;color:#edf3ff}
+.cap .meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-family:var(--mono);font-size:9.5px;color:var(--faint)}
+.cap.sealed{opacity:.92}
+.cap.open{border-color:rgba(94,234,212,.26);background:rgba(94,234,212,.04)}
+
+/* ------------------------------------------------------------- toast */
+.toast{
+  position:fixed;right:22px;bottom:22px;z-index:100;border:1px solid var(--line2);
+  background:rgba(10,16,27,.96);color:var(--text);padding:10px 14px;border-radius:10px;
+  font-size:12px;box-shadow:0 16px 50px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);
+  transition:.22s;pointer-events:none;max-width:340px;
+}
+.toast.show{opacity:1;transform:none}
+.toast.err{border-color:rgba(251,113,133,.4);color:#ffc5cd}
+
+/* ------------------------------------------------------------- responsive */
+@media(max-width:980px){
+  body{overflow:auto}
+  .shell{display:block;height:auto}
+  .rail{position:sticky;top:0;z-index:30;border-right:0;border-bottom:1px solid var(--line);padding:10px 12px;flex-direction:row;align-items:center;gap:10px;overflow-x:auto}
+  .brand{padding:0;flex:0 0 auto}
+  .brand h1{font-size:12px} .brand p{display:none}
+  .logo{width:32px;height:32px;flex-basis:32px;border-radius:10px}
+  .nav{flex-direction:row;margin:0;gap:2px}
+  .nav-label,.rail-foot{display:none}
+  .nav-btn{padding:7px 9px;white-space:nowrap;font-size:11.5px;width:auto}
+  .nav-btn .num{display:none}
+  .main{overflow:visible}
+  .topbar{padding:10px 14px}
+  .clock{display:none}
+  .content{padding:18px 14px 60px}
+  .hero{padding-top:4px} .orb-wrap{display:none}
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:1fr}
+  .g2{grid-template-columns:1fr}
+  .mv-layout{grid-template-columns:1fr}
+  .fc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .branch-grid{grid-template-columns:1fr}
+  .ev-row{grid-template-columns:100px 1fr;gap:5px}
+  .ev-ms{display:none}
+}
+@media(max-width:560px){
+  .g4{grid-template-columns:1fr}
+  .top-right .pill:not(.ok){display:none}
+  .askbox textarea{font-size:15px;padding:15px 15px 5px}
+  .ask-actions{padding:8px 10px 11px}
+  .hero h2{font-size:22px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <div class="logo"><span>◈</span></div>
+      <div><h1>CHRONOVAULT</h1><p>v2.0 · TIME COCKPIT</p></div>
+    </div>
+    <div class="nav-label">NAVIGATION</div>
+    <nav class="nav" id="nav">
+      <button class="nav-btn active" data-tab="ask"><span class="num">01</span>Ask the Future</button>
+      <button class="nav-btn" data-tab="timeline"><span class="num">02</span>Timeline</button>
+      <button class="nav-btn" data-tab="multiverse"><span class="num">03</span>Multiverse</button>
+      <button class="nav-btn" data-tab="oracle"><span class="num">04</span>Oracle</button>
+      <button class="nav-btn" data-tab="network"><span class="num">05</span>Network</button>
+      <button class="nav-btn" data-tab="capsules"><span class="num">06</span>Capsules</button>
+      <button class="nav-btn" data-tab="registry"><span class="num">07</span>Registry</button>
+    </nav>
+    <div class="rail-foot">
+      <div class="pill ok"><span class="dot-live"></span><span id="railLive">LOCAL · READY</span></div>
+      <div class="pill" id="railEndpoints">— endpoints</div>
+      <div class="pill" id="railAnswers">— answers</div>
+      <p>No API keys.<br>No telemetry.<br>Past + present + statistical future.</p>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+    <header class="topbar">
+      <div class="crumb" id="crumb">ASK THE FUTURE</div>
+      <div class="top-right">
+        <span class="clock" id="clock">—</span>
+        <span class="pill" id="endpointPill">— endpoints</span>
+        <span class="pill ok" id="livePill"><span class="dot-live"></span>ONLINE</span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- ------------------------------------------------------------- ask -->
+      <section class="tab active" id="tab-ask">
+        <div class="hero">
+          <div>
+            <h2>Poocho. Main past, present aur <em>future</em> se jawab laata hoon.</h2>
+            <p>Exact math, live sources, statistical forecasts aur ek honest Paradox Ledger — sab kuch local. Har jawab ke saath badge, confidence aur asli provenance.</p>
+          </div>
+          <div class="orb-wrap"><div class="orb"><span class="core"></span></div></div>
+        </div>
+
+        <form class="askbox" id="askForm">
+          <textarea id="q" rows="2" placeholder="Misal: USD/PKR 60 din baad kitna hoga?  ·  Lahore ka mausam  ·  1 Jan 2050 konsa din?"></textarea>
+          <div class="ask-actions">
+            <label class="switch" title="Keyless Pollinations AI se Roman Urdu synthesis">
+              <input type="checkbox" id="aiToggle" checked> AI synthesis
+            </label>
+            <button class="btn primary" id="askBtn" type="submit">Travel <span aria-hidden="true">⟶</span></button>
+          </div>
+        </form>
+
+        <div class="chips" id="chips">
+          <button class="chip" type="button">USD/PKR 30 din baad kitna hoga?</button>
+          <button class="chip" type="button">Bitcoin 90 din baad kitna hoga?</button>
+          <button class="chip" type="button">Lahore ka mausam kaisa hai?</button>
+          <button class="chip" type="button">1 Jan 2050 konsa din hoga?</button>
+          <button class="chip" type="button">Japan ki capital kya hai?</button>
+          <button class="chip" type="button">latest AI news</button>
+          <button class="chip" type="button">time travel kya hai?</button>
+          <button class="chip" type="button">time capsule banao: 1 saal baad kholna, khud par bharosa rakhna</button>
+        </div>
+
+        <div class="stage-panel hidden" id="stagePanel">
+          <div class="stage-head"><span class="pulse"></span> TIME FOLD IN PROGRESS <span class="ms" id="stageMs"></span></div>
+          <div class="stage-log" id="stageLog"></div>
+        </div>
+        <div id="answerArea"></div>
+      </section>
+
+      <!-- -------------------------------------------------------- timeline -->
+      <section class="tab" id="tab-timeline">
+        <div class="section-head">
+          <div><h2>Timeline</h2><p>Aapke pooche hue sawal, unke badges aur confidence ke saath. Kisi bhi item par click karke poora jawab aur evidence dekhein.</p></div>
+          <button class="btn" id="tlRefresh" type="button">Refresh</button>
+        </div>
+        <div id="timeline"><div class="empty"><div class="big">◷</div><p>Timeline load ho rahi hai…</p></div></div>
+      </section>
+
+      <!-- ------------------------------------------------------ multiverse -->
+      <section class="tab" id="tab-multiverse">
+        <div class="section-head">
+          <div><h2>Multiverse</h2><p>Har numeric forecast ke teen statistical branches: lower band, central estimate, upper band. Yeh scenarios probability nahi — backtested interval hain.</p></div>
+          <button class="btn" id="mvRefresh" type="button">Refresh</button>
+        </div>
+        <div id="multiverse"><div class="empty"><div class="big">◇</div><p>Abhi koi numeric forecast nahi hai. Pehle poochein: “USD/PKR 30 din baad kitna hoga?”</p><button class="btn" data-ask="USD/PKR 30 din baad kitna hoga?" type="button">Ek forecast banao</button></div></div>
+      </section>
+
+      <!-- ----------------------------------------------------------- oracle -->
+      <section class="tab" id="tab-oracle">
+        <div class="section-head">
+          <div><h2>Oracle · Paradox Ledger</h2><p>Har future prediction register hoti hai. Due date par probe asli value laata hai aur Brier score update hota hai. Jhoot ka koi faida nahi.</p></div>
+          <div class="row">
+            <button class="btn" id="oraSchedule" type="button">Schedule daily</button>
+            <button class="btn" id="oraRun" type="button">Run due probes</button>
+            <button class="btn ghost" id="oraRefresh" type="button">Refresh</button>
+          </div>
+        </div>
+        <div id="oracle"><div class="empty"><div class="big">◎</div><p>Oracle load ho raha hai…</p></div></div>
+      </section>
+
+      <!-- ---------------------------------------------------------- network -->
+      <section class="tab" id="tab-network">
+        <div class="section-head">
+          <div><h2>Network</h2><p>Keyless endpoints ki live health, cache aur categories. Yahan dikhta hai ke jawab kahan se aaya.</p></div>
+          <div class="row">
+            <button class="btn danger" id="cacheClear" type="button">Clear HTTP cache</button>
+            <button class="btn" id="netRefresh" type="button">Refresh</button>
+          </div>
+        </div>
+        <div id="network"><div class="empty"><div class="big">▦</div><p>Network load ho raha hai…</p></div></div>
+      </section>
+
+      <!-- --------------------------------------------------------- capsules -->
+      <section class="tab" id="tab-capsules">
+        <div class="section-head">
+          <div><h2>Time Capsules</h2><p>Apne future self ke liye message seal karein. Local SQLite me sealed — encrypted nahi, is liye koi sensitive password na likhein.</p></div>
+          <button class="btn" id="capRefresh" type="button">Refresh</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Seal a new capsule</h3><span class="sub">LOCAL · SEALED</span></div>
+          <div class="panel-body">
+            <form id="capForm">
+              <label class="lbl" for="capMsg">Message for your future self</label>
+              <textarea class="input" id="capMsg" maxlength="8000" placeholder="2027 me khud ko yaad rakhna ke mushkil waqt guzar jayega…" required></textarea>
+              <div class="row" style="margin-top:10px">
+                <div style="width:170px">
+                  <label class="lbl" for="capDays">Open after</label>
+                  <select class="input" id="capDays">
+                    <option value="30">30 days</option>
+                    <option value="90">90 days</option>
+                    <option value="365" selected>1 year</option>
+                    <option value="730">2 years</option>
+                    <option value="1825">5 years</option>
+                    <option value="3650">10 years</option>
+                  </select>
+                </div>
+                <div style="align-self:flex-end"><button class="btn primary" type="submit">Seal capsule</button></div>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div id="capsules"></div>
+      </section>
+
+      <!-- --------------------------------------------------------- registry -->
+      <section class="tab" id="tab-registry">
+        <div class="section-head">
+          <div><h2>Endpoint Registry</h2><p>3,900+ keyless public endpoints. Search by id, category, tag, docs ya URL. Reliability sirf source ka historical weight hai — guarantee nahi.</p></div>
+          <span class="pill" id="regTotal">— endpoints</span>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="row" style="flex:1">
+              <input class="input" id="regQ" placeholder="Search: bitcoin, weather, quran, arxiv…" style="max-width:340px">
+              <select class="input" id="regCat" style="max-width:170px"><option value="">All categories</option></select>
+            </div>
+            <span class="sub" id="regCount">—</span>
+          </div>
+          <div class="panel-body flush" id="regBody"><div class="empty"><p>Registry load ho rahi hai…</p></div></div>
+          <div class="panel-head" style="border-top:1px solid var(--line);border-bottom:0">
+            <button class="btn small" id="regPrev" type="button">← Prev</button>
+            <span class="sub" id="regPage">page 1</span>
+            <button class="btn small" id="regNext" type="button">Next →</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const state = {
+  tab: "ask", status: null, lastAnswer: null, forecasts: [],
+  registryOffset: 0, registryLimit: 30, registryTotal: 0, regLoaded: false,
+};
+const TITLES = {
+  ask: "ASK THE FUTURE", timeline: "TIMELINE", multiverse: "MULTIVERSE",
+  oracle: "ORACLE · PARADOX LEDGER", network: "NETWORK",
+  capsules: "TIME CAPSULES", registry: "ENDPOINT REGISTRY",
+};
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined && text !== null) n.textContent = text;
+  return n;
+}
+function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+function icon(name) {
+  const map = { ok: "✓", bad: "✕", dot: "●", spark: "◇", lock: "▣" };
+  return map[name] || "·";
+}
+function fmt(n, dec) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
+  const x = Number(n);
+  if (dec === undefined) dec = Math.abs(x) >= 1000 ? 0 : (Math.abs(x) >= 10 ? 2 : 4);
+  return x.toLocaleString("en-US", { maximumFractionDigits: dec, minimumFractionDigits: dec });
+}
+function pct(x, dec = 0) {
+  if (x === null || x === undefined) return "—";
+  return `${(Number(x) * 100).toFixed(dec)}%`;
+}
+function timeShort(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso).slice(0, 19);
+  return d.toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+function esc(s) { return String(s == null ? "" : s); }
+function badgeClass(b) {
+  b = (b || "").toUpperCase();
+  if (b.includes("EXACT")) return "b-green";
+  if (b.includes("CONSENSUS")) return "b-cyan";
+  if (b.includes("LIVE")) return "b-blue";
+  if (b.includes("FORECAST")) return "b-amber";
+  if (b.includes("SPEC")) return "b-orange";
+  if (b.includes("SEALED")) return "b-pink";
+  if (b.includes("NO-DATA") || b.includes("ERROR") || b.includes("VIOLAT")) return "b-red";
+  if (b.includes("INFO") || b.includes("SYSTEM")) return "b-violet";
+  return "b-gray";
+}
+function badges(text) {
+  const wrap = el("span", "row");
+  String(text || "UNKNOWN").split(" + ").forEach(b => {
+    wrap.appendChild(el("span", "badge " + badgeClass(b), b));
+  });
+  return wrap;
+}
+let toastTimer = null;
+function toast(message, isErr) {
+  const t = $("#toast");
+  t.textContent = message;
+  t.className = "toast show" + (isErr ? " err" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = "toast"; }, 3600);
+}
+function friendlyNetError(msg) {
+  const m = String(msg || "");
+  if (/HTTP 50[234]|Failed to fetch|NetworkError|Load failed|ERR_CONNECTION/i.test(m)) {
+    return "Local ChronoVault server se connection nahi bana (HTTP 502 / offline). " +
+      "Terminal me `python chrono.py cockpit` chala kar dobara try karein; " +
+      "agar VPN/proxy on hai to localhost ko bypass karein.";
+  }
+  return m || "Network error";
+}
+async function api(path, opts = {}, timeoutMs = 25000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(path, { ...opts, signal: ctrl.signal });
+    if (!r.ok) {
+      let text = "";
+      try { text = await r.text(); } catch (e) {}
+      throw new Error(text || `HTTP ${r.status}`);
+    }
+    return await r.json();
+  } catch (e) {
+    if (e.name === "AbortError") {
+      throw new Error("Timeout — local server ne waqt par jawab nahi diya.");
+    }
+    throw new Error(friendlyNetError(e.message));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function postJSON(path, body, timeoutMs) {
+  return api(path, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }, timeoutMs);
+}
+function field(parent, label, value, cls) {
+  const c = el("div", "fc-cell " + (cls || ""));
+  c.appendChild(el("span", null, label));
+  c.appendChild(el("b", null, value));
+  parent.appendChild(c);
+}
+
+/* ------------------------------------------------------------- navigation */
+function switchTab(tab, push = true) {
+  if (!TITLES[tab]) tab = "ask";
+  state.tab = tab;
+  $$(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  $$(".tab").forEach(s => s.classList.toggle("active", s.id === "tab-" + tab));
+  $("#crumb").textContent = TITLES[tab];
+  if (push) { try { window.history.replaceState(null, "", "#" + tab); } catch (e) {} }
+  $("#main").scrollTop = 0;
+  if (tab === "timeline") loadTimeline();
+  if (tab === "multiverse") loadMultiverse();
+  if (tab === "oracle") loadOracle();
+  if (tab === "network") loadNetwork();
+  if (tab === "capsules") loadCapsules();
+  if (tab === "registry") loadRegistry();
+}
+
+/* ------------------------------------------------------------------ status */
+function renderStatus() {
+  const s = state.status;
+  if (!s) return;
+  $("#railEndpoints").textContent = `${fmt(s.registry.total, 0)} endpoints`;
+  $("#railAnswers").textContent = `${fmt(s.memory.answers, 0)} answers`;
+  $("#endpointPill").textContent = `${fmt(s.registry.total, 0)} endpoints`;
+  const h = s.health || {};
+  const live = $("#livePill");
+  if (h.success_rate != null && h.entries > 0) {
+    live.innerHTML = `<span class="dot-live"></span>${h.alive} sources · ${pct(h.success_rate)} OK`;
+    $("#railLive").textContent = `${h.alive} SOURCES LIVE`;
+  } else {
+    live.innerHTML = `<span class="dot-live"></span>LOCAL · READY`;
+    $("#railLive").textContent = `LOCAL · READY`;
+  }
+  const total = s.registry.total || 0;
+  $("#regTotal").textContent = `${fmt(total, 0)} endpoints`;
+  if (!state.regLoaded) fillCategorySelect(s.registry.categories || {});
+}
+function fillCategorySelect(cats) {
+  const sel = $("#regCat");
+  const current = sel.value;
+  sel.innerHTML = `<option value="">All categories</option>`;
+  Object.entries(cats).sort((a, b) => b[1] - a[1]).forEach(([name, count]) => {
+    const o = el("option", null, `${name} (${count})`);
+    o.value = name;
+    sel.appendChild(o);
+  });
+  sel.value = current;
+}
+function tick() {
+  const d = new Date();
+  $("#clock").textContent = d.toLocaleDateString([], { year: "numeric", month: "short", day: "2-digit" }) +
+    " · " + d.toLocaleTimeString([], { hour12: false });
+}
+
+/* --------------------------------------------------------------------- ask */
+const STAGE_LABELS = {
+  start: "Spinning up the time fold",
+  plan: "Routing the question",
+  source: "Opening a live source",
+  synthesize: "Folding evidence",
+  done: "Closing the time fold",
+};
+function addStage(name, payload, at, isErr) {
+  const log = $("#stageLog");
+  const row = el("div", "stage" + (name === "done" ? " done" : "") + (isErr ? " err" : ""));
+  row.appendChild(el("span", "sdot"));
+  let label = STAGE_LABELS[name] || name;
+  if (payload && payload.name) label += " · " + payload.name;
+  if (payload && name === "plan" && payload.kind) label += " · " + payload.kind;
+  row.appendChild(el("span", null, label));
+  if (at) row.appendChild(el("span", "stime", new Date(at * 1000).toLocaleTimeString([], { hour12: false })));
+  log.appendChild(row);
+  log.parentElement.scrollTop = log.parentElement.scrollHeight;
+}
+function stageStart() {
+  const p = $("#stagePanel");
+  p.classList.remove("hidden");
+  clear($("#stageLog"));
+  $("#stageMs").textContent = "";
+  addStage("start", null, Date.now() / 1000);
+}
+function stageFinish(ms) {
+  addStage("done", null, Date.now() / 1000);
+  $("#stageMs").textContent = ms ? `${(ms / 1000).toFixed(1)}s` : "";
+}
+function stageError(msg) {
+  addStage("error", { name: msg }, Date.now() / 1000, true);
+  $("#stageMs").textContent = "";
+}
+async function ask(q, ai) {
+  q = (q || "").trim();
+  if (!q) return;
+  const btn = $("#askBtn");
+  btn.disabled = true;
+  $("#answerArea").innerHTML = "";
+  stageStart();
+  const t0 = performance.now();
+  let done = false;
+  let serverDone = false;
+  const ctrl = new AbortController();
+  const watchdog = setTimeout(() => ctrl.abort(), 300000);
+  try {
+    const res = await fetch("/api/ask?stream=1", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ q, ai }), signal: ctrl.signal,
+    });
+    if (!res.ok || !res.body) {
+      let text = "";
+      try { text = await res.text(); } catch (e) {}
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { value, done: end } = await reader.read();
+      if (end) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (!line) continue;
+        let msg;
+        try { msg = JSON.parse(line); } catch (e) { continue; }
+        if (msg.type === "stage") {
+          addStage(msg.name, msg.payload, msg.at);
+          if (msg.name === "done") {
+            serverDone = true;
+            if (msg.payload && msg.payload.ms) {
+              $("#stageMs").textContent = `${(msg.payload.ms / 1000).toFixed(1)}s`;
+            }
+          }
+        } else if (msg.type === "answer") {
+          done = true;
+          renderAnswer(msg.answer);
+          if (!serverDone) stageFinish(performance.now() - t0);
+        } else if (msg.type === "error") {
+          throw new Error(msg.error);
+        }
+      }
+    }
+    if (!done) throw new Error("Stream khatam hua lekin answer nahi mila.");
+  } catch (e) {
+    try {
+      const data = await postJSON("/api/ask", { q, ai }, 300000);
+      renderAnswer(data.answer);
+      stageFinish(performance.now() - t0);
+      done = true;
+    } catch (e2) {
+      const msg = friendlyNetError(e2.message || String(e2));
+      stageError(msg);
+      toast("Answer nahi mila: " + msg, true);
+    }
+  } finally {
+    clearTimeout(watchdog);
+    btn.disabled = false;
+  }
+}
+
+/* ------------------------------------------------------------- answer view */
+function confEl(conf) {
+  const wrap = el("span", "conf");
+  const pctv = Math.round((conf || 0) * 100);
+  wrap.appendChild(el("span", null, `${pctv}% confidence`));
+  const bar = el("span", "conf-bar");
+  const fill = el("i");
+  fill.style.width = Math.max(2, Math.min(100, pctv)) + "%";
+  bar.appendChild(fill);
+  wrap.appendChild(bar);
+  return wrap;
+}
+function forecastBlock(f, a) {
+  const box = el("div", "fc");
+  const head = el("div", "fc-head");
+  head.appendChild(el("span", null, "STATISTICAL FORECAST · WALK-FORWARD BACKTESTED"));
+  head.appendChild(el("span", null, f.model_note || f.model || ""));
+  box.appendChild(head);
+  const grid = el("div", "fc-grid");
+  const unit = (a.data && (a.data.quote || a.data.symbol)) || "";
+  field(grid, "NOW", fmt(f.last) + (unit ? " " + unit : ""));
+  field(grid, "PREDICTED", fmt(f.predicted) + (unit ? " " + unit : ""));
+  field(grid, "RANGE", fmt(f.lo) + " – " + fmt(f.hi));
+  field(grid, "SKILL", (f.skill >= 0 ? "+" : "") + fmt(f.skill * 100, 1) + "%");
+  box.appendChild(grid);
+  const all = [f.last, f.predicted, f.lo, f.hi].map(Number).filter(Number.isFinite);
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const span = hi - lo || 1;
+  const pos = v => Math.max(1, Math.min(99, ((Number(v) - lo) / span) * 100));
+  const track = el("div", "fan-track");
+  const range = el("div", "fan-range");
+  range.style.left = pos(f.lo) + "%";
+  range.style.width = Math.max(1, pos(f.hi) - pos(f.lo)) + "%";
+  track.appendChild(range);
+  const lastMark = el("div", "fan-mark");
+  lastMark.style.left = pos(f.last) + "%";
+  lastMark.title = "now " + f.last;
+  track.appendChild(lastMark);
+  const predMark = el("div", "fan-mark pred");
+  predMark.style.left = pos(f.predicted) + "%";
+  predMark.title = "forecast " + f.predicted;
+  track.appendChild(predMark);
+  box.appendChild(track);
+  const labels = el("div", "fan-labels");
+  labels.appendChild(el("span", null, fmt(f.lo)));
+  labels.appendChild(el("span", null, "now " + fmt(f.last)));
+  labels.appendChild(el("span", null, fmt(f.hi)));
+  box.appendChild(labels);
+  const foot = el("div", "fc-foot");
+  foot.textContent = `Model ${f.model_note || f.model} · ${f.horizon_days} din · target ${f.target_date || "—"} · ` +
+    `backtest MAE ${fmt(f.mae)} vs naive ${fmt(f.naive_mae)} · direction ${pct(f.direction_accuracy)}. ` +
+    `Yeh statistical projection hai, guarantee nahi.`;
+  box.appendChild(foot);
+  return box;
+}
+function evidenceFold(ev) {
+  const d = el("details", "fold");
+  const sum = el("summary", null, `Evidence · ${ev.length} source${ev.length === 1 ? "" : "s"}`);
+  d.appendChild(sum);
+  const body = el("div", "fold-body");
+  ev.forEach(e => {
+    const row = el("div", "ev-row");
+    row.appendChild(el("div", "ev-src", (e.ok ? "✓ " : "✕ ") + (e.source || "?")));
+    row.appendChild(el("div", "ev-snip", e.snippet || ""));
+    const flags = [];
+    if (e.cached) flags.push("cache");
+    if (e.tls_unverified) flags.push("tls?");
+    row.appendChild(el("div", "ev-ms", (e.ms || 0) + "ms" + (flags.length ? " " + flags.join(",") : "")));
+    body.appendChild(row);
+  });
+  d.appendChild(body);
+  return d;
+}
+function renderAnswer(a) {
+  state.lastAnswer = a;
+  const root = $("#answerArea");
+  clear(root);
+  const card = el("article", "answer-card");
+  const top = el("div", "answer-top");
+  top.appendChild(badges(a.badge));
+  if (a.ai_used) top.appendChild(el("span", "badge b-violet", "AI-SYNTHESIS"));
+  top.appendChild(confEl(a.confidence));
+  card.appendChild(top);
+  card.appendChild(el("div", "answered-q", "Q · " + (a.question || "")));
+  const text = el("div", "answer-text");
+  String(a.answer || "").split("\n").forEach(part => {
+    if (part.trim()) text.appendChild(el("p", null, part));
+  });
+  card.appendChild(text);
+
+  if (a.data && a.data.forecast) card.appendChild(forecastBlock(a.data.forecast, a));
+
+  if (a.sources && a.sources.length) {
+    const src = el("div", "sources");
+    a.sources.forEach(s => src.appendChild(el("span", "source-pill", s)));
+    card.appendChild(src);
+  }
+  if (a.notes && a.notes.length) {
+    const note = el("div", "card-note");
+    const ul = el("ul", "note-list");
+    a.notes.forEach(n => ul.appendChild(el("li", null, n)));
+    note.appendChild(ul);
+    card.appendChild(note);
+  }
+  if (a.detail && a.detail !== a.answer) {
+    const d = el("details", "fold");
+    d.appendChild(el("summary", null, "Raw verified answer"));
+    const b = el("div", "fold-body");
+    b.appendChild(el("div", "small faint", a.detail));
+    d.appendChild(b);
+    card.appendChild(d);
+  }
+  if (a.evidence && a.evidence.length) card.appendChild(evidenceFold(a.evidence));
+
+  const fb = el("div", "fb");
+  fb.appendChild(el("span", null, "Was this useful?"));
+  const up = el("button", "btn small", "👍 yes");
+  const down = el("button", "btn small", "👎 no");
+  const send = async (vote, btn) => {
+    if (!a.answer_id) { toast("Answer ID missing.", true); return; }
+    try {
+      await postJSON("/api/feedback", { id: a.answer_id, vote });
+      up.disabled = down.disabled = true;
+      toast(vote > 0 ? "Shukriya — feedback save hua." : "Feedback save hua. Main behtar karunga.");
+    } catch (e) { toast("Feedback save nahi hua: " + e.message, true); }
+  };
+  up.onclick = () => send(1, up);
+  down.onclick = () => send(-1, down);
+  fb.appendChild(up); fb.appendChild(down);
+  const meta = el("span", "faint", ` · ${a.ms || 0}ms · ${a.kind || ""}`);
+  fb.appendChild(meta);
+  card.appendChild(fb);
+  root.appendChild(card);
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ---------------------------------------------------------------- timeline */
+async function loadTimeline() {
+  const box = $("#timeline");
+  try {
+    const data = await api("/api/history?limit=80");
+    clear(box);
+    if (!data.items.length) {
+      box.innerHTML = `<div class="empty"><div class="big">◷</div><p>Abhi koi answer history nahi hai.</p><button class="btn" data-go="ask" type="button">Pehla sawal poocho</button></div>`;
+      bindGo(box);
+      return;
+    }
+    const tl = el("div", "timeline");
+    data.items.forEach(it => {
+      const b = el("button", "tl-item");
+      b.type = "button";
+      const top = el("div", "tl-top");
+      top.appendChild(badges(it.badge));
+      top.appendChild(el("span", "tl-meta", timeShort(it.ts)));
+      b.appendChild(top);
+      b.appendChild(el("div", "tl-q", it.question));
+      b.appendChild(el("div", "tl-a", it.answer || ""));
+      b.onclick = async () => {
+        try {
+          const full = await api("/api/answer?id=" + it.id);
+          switchTab("ask");
+          renderAnswer(full);
+        } catch (e) { toast("Answer load nahi hua: " + e.message, true); }
+      };
+      tl.appendChild(b);
+    });
+    box.appendChild(tl);
+  } catch (e) {
+    box.innerHTML = `<div class="empty"><p>Timeline load nahi hui: ${esc(e.message)}</p></div>`;
+  }
+}
+function bindGo(root) {
+  $$("[data-go]", root).forEach(b => b.onclick = () => switchTab(b.dataset.go));
+}
+
+/* -------------------------------------------------------------- multiverse */
+async function loadMultiverse() {
+  const box = $("#multiverse");
+  try {
+    const data = await api("/api/forecasts?limit=30");
+    state.forecasts = data.items || [];
+    clear(box);
+    if (!state.forecasts.length) {
+      box.innerHTML = `<div class="empty"><div class="big">◇</div><p>Abhi koi numeric forecast nahi hai. Pehle FX ya crypto ka future poochein.</p><button class="btn" data-ask="USD/PKR 30 din baad kitna hoga?" type="button">USD/PKR 30 din baad?</button></div>`;
+      $$("[data-ask]", box).forEach(b => b.onclick = () => { switchTab("ask"); $("#q").value = b.dataset.ask; ask(b.dataset.ask, true); });
+      return;
+    }
+    const layout = el("div", "mv-layout");
+    const list = el("div", "mv-list");
+    const detail = el("div", "mv-detail");
+    state.forecasts.forEach((f, i) => {
+      const b = el("button", "mv-item" + (i === 0 ? " active" : ""));
+      b.type = "button";
+      b.appendChild(el("span", "t", f.question));
+      b.appendChild(el("span", "m", `${f.data.forecast.model} · ${f.created || f.ts || ""}`.slice(0, 60)));
+      b.onclick = () => {
+        $$(".mv-item", list).forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+        renderForecastDetail(detail, f);
+      };
+      list.appendChild(b);
+    });
+    layout.appendChild(list);
+    layout.appendChild(detail);
+    box.appendChild(layout);
+    renderForecastDetail(detail, state.forecasts[0]);
+  } catch (e) {
+    box.innerHTML = `<div class="empty"><p>Multiverse load nahi hua: ${esc(e.message)}</p></div>`;
+  }
+}
+function renderForecastDetail(container, f) {
+  clear(container);
+  const d = f.data || {};
+  const fc = d.forecast || {};
+  const panel = el("div", "panel");
+  const head = el("div", "panel-head");
+  head.appendChild(el("h3", null, f.question));
+  head.appendChild(el("span", "sub", f.badge || "FORECAST"));
+  panel.appendChild(head);
+  const body = el("div", "panel-body");
+  const unit = d.quote || d.symbol || "";
+  const grid = el("div", "fc-grid");
+  field(grid, "SPOT NOW", fmt(fc.last) + (unit ? " " + unit : ""));
+  field(grid, "CENTRAL", fmt(fc.predicted) + (unit ? " " + unit : ""));
+  field(grid, "LOWER", fmt(fc.lo));
+  field(grid, "UPPER", fmt(fc.hi));
+  body.appendChild(grid);
+  const note = el("div", "small faint", `Model ${fc.model_note || fc.model} · horizon ${fc.horizon_days} din · target ${fc.target_date || "—"} · backtest n=${fc.n}, skill ${pct(fc.skill, 1)}, direction ${pct(fc.direction_accuracy)}.`);
+  body.appendChild(note);
+
+  const tools = el("div", "row", "");
+  tools.style.marginTop = "14px";
+  const label = el("label", "lbl", "Units held");
+  label.style.margin = "0";
+  const inp = el("input", "input");
+  inp.type = "number"; inp.min = "0"; inp.step = "any"; inp.value = "1";
+  inp.style.maxWidth = "150px";
+  tools.appendChild(label); tools.appendChild(inp);
+  body.appendChild(tools);
+
+  const branches = el("div", "branch-grid");
+  const mk = (cls, lbl, price) => {
+    const b = el("div", "branch " + cls);
+    b.appendChild(el("div", "lbl", lbl));
+    b.appendChild(el("div", "num", fmt(price) + (unit ? " " + unit : "")));
+    const sub = el("div", "sub");
+    b.appendChild(sub);
+    branches.appendChild(b);
+    return sub;
+  };
+  const lowSub = mk("low", "Lower band", fc.lo);
+  const midSub = mk("mid", "Central estimate", fc.predicted);
+  const highSub = mk("high", "Upper band", fc.hi);
+  body.appendChild(branches);
+  const update = () => {
+    const units = Math.max(0, Number(inp.value) || 0);
+    lowSub.textContent = units ? `${fmt(units)} units → ${fmt(units * fc.lo)}` : "—";
+    midSub.textContent = units ? `${fmt(units)} units → ${fmt(units * fc.predicted)}` : "—";
+    highSub.textContent = units ? `${fmt(units)} units → ${fmt(units * fc.hi)}` : "—";
+  };
+  inp.oninput = update;
+  update();
+
+  const foot = el("div", "card-note");
+  foot.textContent = "Branches statistical interval se bane hain — teen alag probabilities nahi. Central estimate guarantee nahi; future actual value is range se bahar bhi ho sakti hai.";
+  body.appendChild(foot);
+  panel.appendChild(body);
+  container.appendChild(panel);
+}
+
+/* ------------------------------------------------------------------ oracle */
+function statCard(k, v, s, cls) {
+  const c = el("div", "card " + (cls || ""));
+  c.appendChild(el("div", "k", k));
+  c.appendChild(el("div", "v", v));
+  if (s) c.appendChild(el("div", "s", s));
+  return c;
+}
+async function loadOracle() {
+  const box = $("#oracle");
+  try {
+    const d = await api("/api/oracle");
+    clear(box);
+    const st = d.stats || {};
+    const probes = st.probes || {};
+    const grid = el("div", "grid g4");
+    grid.appendChild(statCard("Prophecies", fmt(st.prophecies || 0, 0), "Paradox Ledger entries", "accent"));
+    grid.appendChild(statCard("Pending", fmt(st.pending || 0, 0), "waiting for due date", (st.pending ? "warn" : "")));
+    grid.appendChild(statCard("Probes scheduled", fmt(probes.scheduled || 0, 0), "automatic truth checks"));
+    grid.appendChild(statCard("Probes harvested", fmt(probes.harvested || 0, 0), "verified against reality"));
+    box.appendChild(grid);
+
+    const engines = st.sach_rate_by_engine || {};
+    if (Object.keys(engines).length) {
+      const p = el("div", "panel");
+      const h = el("div", "panel-head");
+      h.appendChild(el("h3", null, "Calibration by engine"));
+      h.appendChild(el("span", "sub", "Brier score · lower is better"));
+      p.appendChild(h);
+      const body = el("div", "panel-body");
+      Object.entries(engines).forEach(([name, e]) => {
+        const row = el("div", "row");
+        row.style.margin = "6px 0";
+        row.appendChild(el("span", "mono small", name));
+        row.appendChild(el("span", "badge " + (e.brier < 0.15 ? "b-green" : e.brier < 0.3 ? "b-amber" : "b-red"), `Brier ${e.brier}`));
+        row.appendChild(el("span", "small faint", `n=${e.n} · hits ${e.hits} · ${e.sach_rate}`));
+        body.appendChild(row);
+      });
+      p.appendChild(body);
+      box.appendChild(p);
+    }
+
+    const pp = el("div", "panel");
+    const ph = el("div", "panel-head");
+    ph.appendChild(el("h3", null, "Prophecies"));
+    ph.appendChild(el("span", "sub", `${(d.prophecies || []).length} total`));
+    pp.appendChild(ph);
+    const pb = el("div", "panel-body flush");
+    const pt = el("div", "table-wrap");
+    const table = el("table");
+    table.innerHTML = `<thead><tr><th>#</th><th>Question</th><th>Prediction</th><th>Badge</th><th>Conf.</th><th>Due</th><th>Status</th></tr></thead>`;
+    const tb = el("tbody");
+    (d.prophecies || []).slice().reverse().forEach(p => {
+      const tr = el("tr");
+      tr.appendChild(el("td", "mono", "#" + p.id));
+      tr.appendChild(el("td", null, p.question));
+      const pred = el("td", "small", p.answer || "");
+      pred.style.maxWidth = "320px";
+      tr.appendChild(pred);
+      const bd = el("td"); bd.appendChild(badges(p.badge)); tr.appendChild(bd);
+      tr.appendChild(el("td", "mono", pct(p.confidence)));
+      tr.appendChild(el("td", "mono small", p.due || "—"));
+      const stt = el("td");
+      stt.appendChild(el("span", "verdict " + (["fulfilled", "pending"].includes(p.status) ? "v-ok" : p.status === "violated" ? "v-bad" : ""), p.status || "—"));
+      tr.appendChild(stt);
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb); pt.appendChild(table); pb.appendChild(pt); pp.appendChild(pb);
+    box.appendChild(pp);
+
+    const pr = el("div", "panel");
+    const prh = el("div", "panel-head");
+    prh.appendChild(el("h3", null, "Probes"));
+    prh.appendChild(el("span", "sub", "future → reality comparison"));
+    pr.appendChild(prh);
+    const prb = el("div", "panel-body flush");
+    const prt = el("div", "table-wrap");
+    const ptab = el("table");
+    ptab.innerHTML = `<thead><tr><th>#</th><th>Prophecy</th><th>Due</th><th>Kind</th><th>Status</th><th>Truth / result</th></tr></thead>`;
+    const ptb = el("tbody");
+    (d.probes || []).forEach(p => {
+      const tr = el("tr");
+      tr.appendChild(el("td", "mono", "#" + p.id));
+      tr.appendChild(el("td", "mono", "#" + p.prophecy_id));
+      tr.appendChild(el("td", "mono small", (p.when_iso || "").slice(0, 16)));
+      tr.appendChild(el("td", "mono small", (p.check && p.check.kind) || "—"));
+      tr.appendChild(el("td", "mono small", p.status || "—"));
+      const truth = p.result && (p.result.truth || p.result.error || JSON.stringify(p.result));
+      tr.appendChild(el("td", "small", truth || "—"));
+      ptb.appendChild(tr);
+    });
+    ptab.appendChild(ptb); prt.appendChild(ptab); prb.appendChild(prt); pr.appendChild(prb);
+    box.appendChild(pr);
+
+    if (d.tasks && d.tasks.length) {
+      const t = el("div", "panel");
+      const th = el("div", "panel-head");
+      th.appendChild(el("h3", null, "Scheduler"));
+      t.appendChild(th);
+      const tb2 = el("div", "panel-body");
+      d.tasks.forEach(x => tb2.appendChild(el("div", "small", `${x.TaskName} · ${x.State}`)));
+      t.appendChild(tb2);
+      box.appendChild(t);
+    }
+  } catch (e) {
+    box.innerHTML = `<div class="empty"><p>Oracle load nahi hua: ${esc(e.message)}</p></div>`;
+  }
+}
+
+/* ----------------------------------------------------------------- network */
+async function loadNetwork() {
+  const box = $("#network");
+  try {
+    const [d, st] = await Promise.all([api("/api/network"), api("/api/status")]);
+    state.status = st; renderStatus();
+    clear(box);
+    const h = d.summary || {};
+    const grid = el("div", "grid g4");
+    grid.appendChild(statCard("Success rate", pct(h.success_rate, 1), `${h.requests_ok} OK / ${h.requests_fail} fail`, "accent"));
+    grid.appendChild(statCard("Endpoints alive", fmt(h.alive, 0), `${h.entries} contacted so far`));
+    grid.appendChild(statCard("Registry", fmt(st.registry.total, 0), `${Object.keys(st.registry.categories || {}).length} categories`));
+    grid.appendChild(statCard("Cache", (d.cache_bytes / 1048576).toFixed(1) + " MB", "SQLite HTTP cache"));
+    box.appendChild(grid);
+
+    const catPanel = el("div", "panel");
+    const ch = el("div", "panel-head");
+    ch.appendChild(el("h3", null, "Registry categories"));
+    ch.appendChild(el("span", "sub", "endpoint counts"));
+    catPanel.appendChild(ch);
+    const cb = el("div", "panel-body");
+    const cats = Object.entries(st.registry.categories || {}).sort((a, b) => b[1] - a[1]);
+    const max = cats.length ? cats[0][1] : 1;
+    cats.forEach(([name, n]) => {
+      const row = el("div", "bar-row");
+      row.appendChild(el("span", null, name));
+      const bar = el("div", "bar"); const fill = el("i");
+      fill.style.width = Math.max(1, (n / max) * 100) + "%";
+      bar.appendChild(fill); row.appendChild(bar);
+      row.appendChild(el("b", null, fmt(n, 0)));
+      cb.appendChild(row);
+    });
+    catPanel.appendChild(cb);
+    box.appendChild(catPanel);
+
+    const pp = el("div", "panel");
+    const ph = el("div", "panel-head");
+    ph.appendChild(el("h3", null, "Provider health"));
+    const filter = el("input", "input");
+    filter.placeholder = "Filter providers…";
+    filter.style.maxWidth = "220px";
+    ph.appendChild(filter);
+    pp.appendChild(ph);
+    const pb = el("div", "panel-body flush");
+    const wrap = el("div", "table-wrap");
+    const table = el("table");
+    table.innerHTML = `<thead><tr><th>Endpoint</th><th>OK</th><th>Fail</th><th>Avg ms</th><th>Last seen</th></tr></thead>`;
+    const tb = el("tbody");
+    const rows = (d.providers || []);
+    const draw = (q = "") => {
+      tb.innerHTML = "";
+      rows.filter(x => !q || x.id.toLowerCase().includes(q)).slice(0, 80).forEach(x => {
+        const tr = el("tr");
+        tr.appendChild(el("td", "mono small", x.id));
+        tr.appendChild(el("td", "mono", fmt(x.ok || 0, 0)));
+        tr.appendChild(el("td", "mono", fmt(x.fail || 0, 0)));
+        tr.appendChild(el("td", "mono", fmt(x.avg_ms || 0, 0)));
+        tr.appendChild(el("td", "mono small", x.last ? new Date(x.last * 1000).toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"));
+        tb.appendChild(tr);
+      });
+    };
+    filter.oninput = () => draw(filter.value.trim().toLowerCase());
+    draw();
+    table.appendChild(tb); wrap.appendChild(table); pb.appendChild(wrap); pp.appendChild(pb);
+    box.appendChild(pp);
+  } catch (e) {
+    box.innerHTML = `<div class="empty"><p>Network load nahi hua: ${esc(e.message)}</p></div>`;
+  }
+}
+
+/* ---------------------------------------------------------------- capsules */
+function daysLeft(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const now = new Date();
+  const diff = Math.ceil((d - now) / 86400000);
+  return diff;
+}
+async function loadCapsules() {
+  const box = $("#capsules");
+  try {
+    const d = await api("/api/capsules");
+    clear(box);
+    if (!d.items.length) {
+      box.innerHTML = `<div class="empty"><div class="big">▣</div><p>Abhi koi capsule nahi hai. Upar message likh kar apne future self ke liye seal karein.</p></div>`;
+      return;
+    }
+    const list = el("div", "cap-list");
+    d.items.slice().reverse().forEach(c => {
+      const left = daysLeft(c.open_date);
+      const open = left <= 0;
+      const card = el("div", "cap " + (open ? "open" : "sealed"));
+      const meta = el("div", "meta");
+      meta.appendChild(el("span", null, "#" + c.id));
+      meta.appendChild(el("span", "badge " + (open ? "b-green" : "b-pink"), open ? "OPEN" : "SEALED"));
+      meta.appendChild(el("span", null, "opens " + c.open_date));
+      meta.appendChild(el("span", null, open ? "ready to open" : left + " days left"));
+      card.appendChild(meta);
+      card.appendChild(el("div", "msg", c.message));
+      const m2 = el("div", "meta");
+      m2.appendChild(el("span", "faint", "sealed " + timeShort(c.ts) + " · " + (c.author || "user")));
+      card.appendChild(m2);
+      list.appendChild(card);
+    });
+    box.appendChild(list);
+  } catch (e) {
+    box.innerHTML = `<div class="empty"><p>Capsules load nahi hue: ${esc(e.message)}</p></div>`;
+  }
+}
+
+/* ---------------------------------------------------------------- registry */
+function fillCategorySelectOnce() {
+  if (!state.status) return;
+  fillCategorySelect(state.status.registry.categories || {});
+}
+async function loadRegistry(reset = false) {
+  if (reset) state.registryOffset = 0;
+  const box = $("#regBody");
+  const q = $("#regQ").value.trim();
+  const cat = $("#regCat").value;
+  try {
+    const params = new URLSearchParams({
+      q, category: cat, limit: String(state.registryLimit),
+      offset: String(state.registryOffset),
+    });
+    const d = await api("/api/registry?" + params.toString());
+    state.registryTotal = d.total;
+    clear(box);
+    const wrap = el("div", "table-wrap");
+    const table = el("table");
+    table.innerHTML = `<thead><tr><th>ID</th><th>Category</th><th>URL</th><th>Rel.</th><th>Cache</th><th>Docs</th></tr></thead>`;
+    const tb = el("tbody");
+    if (!d.items.length) {
+      const tr = el("tr"); const td = el("td", "empty", "Koi endpoint match nahi hua."); td.colSpan = 6; tr.appendChild(td); tb.appendChild(tr);
+    }
+    d.items.forEach(e => {
+      const tr = el("tr");
+      tr.appendChild(el("td", "mono small", e.id));
+      tr.appendChild(el("td", "small", e.category));
+      const u = el("td", "mono small", e.url);
+      u.style.maxWidth = "360px"; u.style.wordBreak = "break-all";
+      tr.appendChild(u);
+      tr.appendChild(el("td", "mono small", fmt(e.reliability, 2)));
+      tr.appendChild(el("td", "mono small", (e.cache_s || 0) + "s"));
+      tr.appendChild(el("td", "small faint", e.docs || ""));
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb); wrap.appendChild(table); box.appendChild(wrap);
+    $("#regCount").textContent = `${d.count} shown · ${fmt(d.total, 0)} total`;
+    const page = Math.floor(state.registryOffset / state.registryLimit) + 1;
+    $("#regPage").textContent = `page ${page}`;
+    $("#regPrev").disabled = state.registryOffset <= 0;
+    $("#regNext").disabled = d.items.length < state.registryLimit;
+    state.regLoaded = true;
+  } catch (e) {
+    box.innerHTML = `<div class="empty"><p>Registry load nahi hui: ${esc(e.message)}</p></div>`;
+  }
+}
+
+/* ------------------------------------------------------------------ events */
+let regTimer = null;
+function bindEvents() {
+  $$(".nav-btn").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+  $("#askForm").addEventListener("submit", e => {
+    e.preventDefault();
+    ask($("#q").value, $("#aiToggle").checked);
+  });
+  $("#q").addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      $("#askForm").requestSubmit();
+    }
+  });
+  $$("#chips .chip").forEach(b => b.onclick = () => {
+    $("#q").value = b.textContent;
+    ask(b.textContent, $("#aiToggle").checked);
+  });
+  $("#tlRefresh").onclick = loadTimeline;
+  $("#mvRefresh").onclick = loadMultiverse;
+  $("#oraRefresh").onclick = loadOracle;
+  $("#netRefresh").onclick = loadNetwork;
+  $("#capRefresh").onclick = loadCapsules;
+  $("#oraRun").onclick = async () => {
+    try {
+      const r = await postJSON("/api/probes/run", { limit: 10 });
+      toast(r.results.length ? `${r.results.length} probe(s) harvested.` : "Koi due probe nahi hai.");
+      loadOracle();
+    } catch (e) { toast("Probe run failed: " + e.message, true); }
+  };
+  $("#oraSchedule").onclick = async () => {
+    try {
+      const r = await postJSON("/api/probes/schedule", {});
+      toast(r.ok ? "Daily task ready: " + (r.task || "ChronoVault_Daily") : ("Schedule failed: " + (r.error || "")), !r.ok);
+      loadOracle();
+    } catch (e) { toast("Schedule failed: " + e.message, true); }
+  };
+  $("#cacheClear").onclick = async () => {
+    try {
+      await postJSON("/api/cache/clear", {});
+      toast("HTTP cache clear ho gaya.");
+      loadNetwork();
+    } catch (e) { toast("Cache clear failed: " + e.message, true); }
+  };
+  $("#capForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const msg = $("#capMsg").value.trim();
+    if (!msg) return;
+    try {
+      const r = await postJSON("/api/capsule", { message: msg, days: Number($("#capDays").value) });
+      $("#capMsg").value = "";
+      toast(`Capsule #${r.id} seal ho gaya — ${r.open_date} ko khulega.`);
+      loadCapsules();
+    } catch (e) { toast("Capsule seal nahi hua: " + e.message, true); }
+  });
+  $("#regQ").addEventListener("input", () => {
+    clearTimeout(regTimer);
+    regTimer = setTimeout(() => loadRegistry(true), 280);
+  });
+  $("#regCat").addEventListener("change", () => loadRegistry(true));
+  $("#regPrev").onclick = () => {
+    state.registryOffset = Math.max(0, state.registryOffset - state.registryLimit);
+    loadRegistry();
+  };
+  $("#regNext").onclick = () => {
+    state.registryOffset += state.registryLimit;
+    loadRegistry();
+  };
+  document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      switchTab("ask");
+      $("#q").focus();
+    }
+  });
+  window.addEventListener("hashchange", () => {
+    const t = (location.hash || "#ask").slice(1);
+    if (t !== state.tab) switchTab(t, false);
+  });
+}
+
+/* --------------------------------------------------------------------- init */
+async function init() {
+  bindEvents();
+  tick();
+  setInterval(tick, 1000);
+  try {
+    state.status = await api("/api/status");
+    renderStatus();
+    fillCategorySelectOnce();
+  } catch (e) {
+    toast("Status load nahi hua: " + e.message, true);
+  }
+  const hash = (location.hash || "#ask").slice(1);
+  switchTab(TITLES[hash] ? hash : "ask", false);
+  $("#q").focus();
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>

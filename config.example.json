@@ -1,0 +1,40 @@
+{
+  "project": "ChronoVault — Project Time Machine",
+  "policy": {
+    "api_keys_required": false,
+    "no_user_signup": true,
+    "no_telemetry": true,
+    "offline_first": true,
+    "note": "No API keys. All providers are keyless public endpoints or optional local AI."
+  },
+  "paths": {
+    "vault": "Vault",
+    "registry": "registry.json",
+    "db": "Vault/index.db"
+  },
+  "watched_paths": [],
+  "excludes": [".git", "node_modules", "__pycache__", "*.tmp", "*.log"],
+  "vault_quota_gb": 80,
+  "local_ai": {
+    "ollama": "http://localhost:11434",
+    "lm_studio": "http://localhost:1234",
+    "note": "Optional. Install Ollama if you want 100% offline AI. Not required."
+  },
+  "accuracy": {
+    "min_sources_for_crosscheck": 3,
+    "ensemble_boost": true,
+    "calibration_report_every_prophecies": 20,
+    "backtest_before_forecast": true,
+    "exact_first_routing": true,
+    "provenance_badges_mandatory": true
+  },
+  "probe": {
+    "scheduler": "windows_task_scheduler",
+    "catch_up_on_boot": true,
+    "missed_probe_policy": "honest_missed_badge"
+  },
+  "multiverse": {
+    "default_branch": "Prime",
+    "anchor_before_switch": true
+  }
+}

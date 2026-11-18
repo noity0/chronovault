@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+build/
+dist/
+
+# Local data / generated runtime state
+cache/
+Vault/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+*.log
+engine/providers/health.json
+restored_story_DAY1.txt
+
+# Personal config (see config.example.json)
+config.json
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Keep the generated endpoint catalog in git (needed at runtime)
+!registry_v2.json
+!registry.json
