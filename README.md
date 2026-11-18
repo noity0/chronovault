@@ -31,7 +31,7 @@ Real time travel is not possible. ChronoVault does the honest version: it **fold
 ### Windows
 
 ```bat
-cd "D:\Time Machine"
+cd path\to\chronovault
 python chrono.py selftest
 python chrono.py cockpit
 ```
